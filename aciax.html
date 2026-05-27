@@ -1,0 +1,1425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ACIAX — AI Command Layer for General Contractors</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800&family=Barlow:wght@300;400;500&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+/* ─── RESET & BASE ─── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'Barlow', sans-serif;
+  background: #0D0E0F;
+  color: #E8E4DC;
+  overflow-x: hidden;
+  cursor: none;
+}
+
+/* ─── CUSTOM CURSOR ─── */
+#cursor {
+  position: fixed; top: 0; left: 0;
+  width: 10px; height: 10px;
+  background: #F5A623;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9999;
+  transform: translate(-50%,-50%);
+  transition: transform 0.1s, width 0.2s, height 0.2s, background 0.2s;
+  mix-blend-mode: exclusion;
+}
+#cursor-ring {
+  position: fixed; top: 0; left: 0;
+  width: 32px; height: 32px;
+  border: 1px solid rgba(245,166,35,0.5);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9998;
+  transform: translate(-50%,-50%);
+  transition: transform 0.18s ease-out, width 0.2s, height 0.2s;
+}
+
+/* ─── COLOR TOKENS ─── */
+:root {
+  --orange: #F5A623;
+  --orange-dim: #C4821C;
+  --orange-glow: rgba(245,166,35,0.15);
+  --steel: #2A2D32;
+  --steel-light: #3D4147;
+  --concrete: #1A1C1F;
+  --concrete-mid: #161819;
+  --text-primary: #F0EBE1;
+  --text-secondary: #8A8780;
+  --text-muted: #4A4845;
+  --danger: #E84C3D;
+  --success: #2ECC71;
+  --blueprint: #1E3A5F;
+  --blueprint-line: rgba(100,160,230,0.12);
+}
+
+/* ─── BLUEPRINT GRID BG ─── */
+.blueprint-bg {
+  background-image:
+    linear-gradient(var(--blueprint-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--blueprint-line) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* ─── NOISE OVERLAY ─── */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.4;
+}
+
+/* ─── TYPOGRAPHY ─── */
+.display { font-family: 'Barlow Condensed', sans-serif; }
+.mono { font-family: 'Share Tech Mono', monospace; }
+
+/* ─── NAV ─── */
+nav {
+  position: fixed; top: 0; left: 0; right: 0;
+  z-index: 100;
+  padding: 0 48px;
+  height: 64px;
+  display: flex; align-items: center; justify-content: space-between;
+  background: rgba(13,14,15,0.88);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(245,166,35,0.12);
+}
+.nav-logo {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: var(--orange);
+  text-transform: uppercase;
+  position: relative;
+}
+.nav-logo::after {
+  content: '®';
+  font-size: 10px;
+  vertical-align: super;
+  color: var(--orange-dim);
+  margin-left: 2px;
+}
+.nav-links { display: flex; gap: 36px; list-style: none; }
+.nav-links a {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+.nav-links a:hover { color: var(--orange); }
+.nav-cta {
+  background: var(--orange);
+  color: #0D0E0F;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 8px 20px;
+  border: none;
+  cursor: none;
+  transition: background 0.2s, transform 0.1s;
+  clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+}
+.nav-cta:hover { background: #FFB83F; transform: scale(1.02); }
+
+/* ─── HERO ─── */
+#hero {
+  min-height: 100vh;
+  display: flex; align-items: center;
+  position: relative;
+  overflow: hidden;
+  padding: 120px 48px 80px;
+}
+.hero-bg {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 60% 40%, rgba(245,166,35,0.06) 0%, transparent 70%),
+    linear-gradient(180deg, #0D0E0F 0%, #111315 100%);
+}
+.hero-grid {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(100,160,230,0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(100,160,230,0.07) 1px, transparent 1px);
+  background-size: 60px 60px;
+  mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 30%, transparent 100%);
+}
+.hero-content { position: relative; z-index: 1; max-width: 1200px; width: 100%; }
+
+.hero-eyebrow {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  color: var(--orange);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  margin-bottom: 20px;
+  display: flex; align-items: center; gap: 12px;
+  opacity: 0; animation: fadeUp 0.6s 0.2s forwards;
+}
+.hero-eyebrow::before {
+  content: '';
+  display: inline-block;
+  width: 24px; height: 1px;
+  background: var(--orange);
+}
+.eyebrow-badge {
+  background: rgba(245,166,35,0.1);
+  border: 1px solid rgba(245,166,35,0.3);
+  padding: 2px 10px;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+}
+
+.hero-headline {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: clamp(64px, 9vw, 120px);
+  font-weight: 800;
+  line-height: 0.9;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+  margin-bottom: 28px;
+  opacity: 0; animation: fadeUp 0.7s 0.35s forwards;
+}
+.headline-line1 { color: var(--text-primary); display: block; }
+.headline-line2 {
+  color: transparent;
+  -webkit-text-stroke: 1.5px var(--orange);
+  display: block;
+}
+.headline-line3 { color: var(--orange); display: block; }
+
+.hero-sub {
+  font-size: 17px;
+  font-weight: 300;
+  color: var(--text-secondary);
+  max-width: 520px;
+  line-height: 1.65;
+  margin-bottom: 40px;
+  opacity: 0; animation: fadeUp 0.7s 0.5s forwards;
+}
+
+.hero-actions {
+  display: flex; gap: 16px; align-items: center;
+  opacity: 0; animation: fadeUp 0.7s 0.65s forwards;
+}
+.btn-primary {
+  background: var(--orange);
+  color: #0D0E0F;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 14px 32px;
+  border: none;
+  cursor: none;
+  transition: background 0.2s, transform 0.15s;
+  clip-path: polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%);
+  display: inline-block;
+}
+.btn-primary:hover { background: #FFB83F; transform: translateY(-2px); }
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 13px 24px;
+  border: 1px solid var(--steel-light);
+  cursor: none;
+  transition: border-color 0.2s, color 0.2s;
+  display: inline-block;
+}
+.btn-ghost:hover { border-color: var(--orange); color: var(--orange); }
+
+/* stats strip */
+.hero-stats {
+  position: absolute; bottom: 48px; left: 0; right: 0;
+  padding: 0 48px;
+  display: flex; gap: 0;
+  opacity: 0; animation: fadeUp 0.7s 0.85s forwards;
+}
+.hero-stat {
+  flex: 1;
+  padding: 20px 32px;
+  border-left: 1px solid var(--steel);
+  position: relative;
+}
+.hero-stat:first-child { border-left: none; }
+.stat-n {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 40px;
+  font-weight: 800;
+  color: var(--orange);
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.stat-l {
+  font-size: 12px;
+  color: var(--text-muted);
+  letter-spacing: 0.06em;
+  font-weight: 400;
+}
+
+/* ─── SECTION SHARED ─── */
+section { position: relative; z-index: 1; }
+.section-inner { max-width: 1200px; margin: 0 auto; padding: 100px 48px; }
+.section-tag {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  color: var(--orange);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+  display: flex; align-items: center; gap: 8px;
+}
+.section-tag::before { content: '//'; color: var(--text-muted); }
+.section-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: clamp(36px, 4vw, 56px);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  color: var(--text-primary);
+  margin-bottom: 16px;
+}
+.section-title span { color: var(--orange); }
+.section-desc {
+  font-size: 16px;
+  color: var(--text-secondary);
+  font-weight: 300;
+  line-height: 1.65;
+  max-width: 540px;
+}
+
+/* ─── PROBLEM SECTION ─── */
+#problem { background: var(--concrete-mid); }
+.problem-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+  margin-top: 60px;
+  background: var(--steel);
+}
+.problem-card {
+  background: var(--concrete);
+  padding: 36px 40px;
+  position: relative;
+  overflow: hidden;
+  transition: background 0.3s;
+}
+.problem-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0;
+  width: 3px; height: 0;
+  background: var(--orange);
+  transition: height 0.4s;
+}
+.problem-card:hover { background: var(--concrete-mid); }
+.problem-card:hover::before { height: 100%; }
+.problem-num {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 56px;
+  font-weight: 800;
+  color: var(--text-muted);
+  line-height: 1;
+  margin-bottom: 16px;
+  transition: color 0.3s;
+}
+.problem-card:hover .problem-num { color: var(--orange); }
+.problem-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-primary);
+  margin-bottom: 10px;
+}
+.problem-body { font-size: 14px; color: var(--text-secondary); line-height: 1.6; font-weight: 300; }
+.problem-cost {
+  display: inline-block;
+  margin-top: 16px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  color: var(--danger);
+  border: 1px solid rgba(232,76,61,0.3);
+  padding: 4px 10px;
+  letter-spacing: 0.08em;
+}
+
+/* ─── MODULES SECTION ─── */
+#modules { background: #0D0E0F; }
+.modules-header {
+  display: flex; justify-content: space-between; align-items: flex-end;
+  margin-bottom: 60px;
+}
+.module-tabs {
+  display: flex; gap: 0;
+  border: 1px solid var(--steel);
+}
+.tab-btn {
+  background: transparent;
+  color: var(--text-muted);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 8px 18px;
+  border: none;
+  border-right: 1px solid var(--steel);
+  cursor: none;
+  transition: background 0.2s, color 0.2s;
+}
+.tab-btn:last-child { border-right: none; }
+.tab-btn.active { background: var(--orange); color: #0D0E0F; }
+.tab-btn:hover:not(.active) { color: var(--orange); }
+
+.modules-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 2px;
+  background: var(--steel);
+  min-height: 520px;
+}
+.modules-nav {
+  background: var(--concrete);
+  display: flex; flex-direction: column;
+}
+.module-nav-item {
+  padding: 24px 28px;
+  border-bottom: 1px solid var(--steel);
+  cursor: none;
+  transition: background 0.2s;
+  position: relative;
+}
+.module-nav-item::after {
+  content: '→';
+  position: absolute; right: 20px; top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  font-size: 14px;
+  opacity: 0;
+  transition: opacity 0.2s, right 0.2s;
+}
+.module-nav-item:hover::after, .module-nav-item.active::after { opacity: 1; right: 16px; }
+.module-nav-item.active { background: rgba(245,166,35,0.08); border-left: 3px solid var(--orange); }
+.module-nav-item:hover:not(.active) { background: rgba(255,255,255,0.02); }
+.mnav-tag {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 9px;
+  color: var(--orange);
+  letter-spacing: 0.14em;
+  margin-bottom: 4px;
+}
+.mnav-name {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-primary);
+}
+
+.module-content {
+  background: var(--concrete-mid);
+  padding: 44px 52px;
+  display: none;
+}
+.module-content.active { display: block; }
+.mc-eyebrow {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  color: var(--orange);
+  letter-spacing: 0.16em;
+  margin-bottom: 12px;
+}
+.mc-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 44px;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--text-primary);
+  line-height: 1;
+  margin-bottom: 16px;
+}
+.mc-desc { font-size: 15px; color: var(--text-secondary); font-weight: 300; line-height: 1.65; margin-bottom: 32px; max-width: 480px; }
+.mc-features { list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 32px; }
+.mc-feature {
+  display: flex; gap: 10px; align-items: flex-start;
+  font-size: 13px; color: var(--text-secondary); font-weight: 300; line-height: 1.5;
+}
+.mc-feature::before {
+  content: '◆';
+  color: var(--orange);
+  font-size: 8px;
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+.mc-metric {
+  display: inline-flex; gap: 32px;
+  padding: 16px 24px;
+  background: rgba(245,166,35,0.06);
+  border: 1px solid rgba(245,166,35,0.2);
+}
+.mm-val {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--orange);
+  line-height: 1;
+}
+.mm-lab { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+
+/* ─── HOW IT WORKS ─── */
+#how { background: var(--concrete); }
+.process-strip {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  margin-top: 60px;
+  position: relative;
+}
+.process-strip::before {
+  content: '';
+  position: absolute;
+  top: 36px; left: 5%;
+  width: 90%; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--orange), transparent);
+}
+.process-step { padding: 20px 16px; text-align: center; }
+.ps-num {
+  width: 36px; height: 36px;
+  background: var(--orange);
+  color: #0D0E0F;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 16px;
+  font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 16px;
+  clip-path: polygon(4px 0%, 100% 0%, calc(100% - 4px) 100%, 0% 100%);
+  position: relative;
+  z-index: 1;
+}
+.ps-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+.ps-body { font-size: 11px; color: var(--text-muted); line-height: 1.5; }
+
+/* ─── ROI SECTION ─── */
+#roi { background: #0D0E0F; }
+.roi-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2px; margin-top: 60px; background: var(--steel); }
+.roi-card {
+  background: var(--concrete);
+  padding: 40px 36px;
+  position: relative;
+  overflow: hidden;
+}
+.roi-card::after {
+  content: '';
+  position: absolute; bottom: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--orange);
+  transform: scaleX(0);
+  transition: transform 0.4s;
+  transform-origin: left;
+}
+.roi-card:hover::after { transform: scaleX(1); }
+.roi-icon { font-size: 28px; margin-bottom: 20px; }
+.roi-label { font-family: 'Share Tech Mono', monospace; font-size: 9px; color: var(--text-muted); letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: 8px; }
+.roi-value {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 48px;
+  font-weight: 800;
+  color: var(--orange);
+  line-height: 1;
+  margin-bottom: 6px;
+}
+.roi-sub { font-size: 13px; color: var(--text-secondary); font-weight: 300; line-height: 1.5; }
+
+/* ─── PRICING ─── */
+#pricing { background: var(--concrete-mid); }
+.pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; margin-top: 60px; background: var(--steel); }
+.price-card {
+  background: var(--concrete);
+  padding: 40px 36px;
+  position: relative;
+  transition: background 0.3s;
+}
+.price-card.featured {
+  background: rgba(245,166,35,0.05);
+  border-top: 3px solid var(--orange);
+}
+.price-badge {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #0D0E0F;
+  background: var(--orange);
+  padding: 4px 10px;
+  display: inline-block;
+  margin-bottom: 16px;
+}
+.price-tier {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+.price-amount {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 52px;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1;
+}
+.price-period { font-size: 14px; color: var(--text-muted); font-weight: 300; margin-bottom: 8px; }
+.price-target { font-size: 12px; color: var(--text-muted); margin-bottom: 28px; padding-bottom: 24px; border-bottom: 1px solid var(--steel); }
+.price-features { list-style: none; margin-bottom: 32px; }
+.price-features li {
+  font-size: 13px;
+  color: var(--text-secondary);
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  display: flex; gap: 10px; align-items: flex-start;
+  font-weight: 300;
+}
+.price-features li span.check { color: var(--success); font-size: 12px; flex-shrink: 0; margin-top: 1px; }
+.price-cta {
+  width: 100%;
+  padding: 14px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: none;
+  border: 1px solid var(--steel-light);
+  background: transparent;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+  clip-path: polygon(10px 0%, 100% 0%, calc(100% - 10px) 100%, 0% 100%);
+}
+.price-cta:hover { background: var(--orange); color: #0D0E0F; border-color: var(--orange); }
+.price-card.featured .price-cta { background: var(--orange); color: #0D0E0F; border-color: var(--orange); }
+.price-card.featured .price-amount { color: var(--orange); }
+
+/* ─── FOUNDER SECTION ─── */
+#founder { background: #0D0E0F; }
+.founder-layout {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 80px;
+  align-items: center;
+  margin-top: 60px;
+}
+.founder-visual {
+  position: relative;
+}
+.founder-frame {
+  width: 280px; height: 340px;
+  background: var(--concrete);
+  border: 1px solid var(--steel-light);
+  position: relative;
+  overflow: hidden;
+}
+.founder-frame::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(245,166,35,0.05) 0%, transparent 60%);
+}
+.founder-initials {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column;
+}
+.fi-letters {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 88px;
+  font-weight: 800;
+  color: var(--orange);
+  opacity: 0.15;
+  line-height: 1;
+}
+.fi-name {
+  position: absolute;
+  bottom: 20px; left: 0; right: 0;
+  text-align: center;
+}
+.fi-fullname {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-primary);
+}
+.fi-role {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  color: var(--orange);
+  letter-spacing: 0.14em;
+  margin-top: 4px;
+}
+.founder-corner {
+  position: absolute;
+  width: 24px; height: 24px;
+  border-color: var(--orange);
+  border-style: solid;
+  border-width: 0;
+}
+.corner-tl { top: -8px; left: -8px; border-top-width: 2px; border-left-width: 2px; }
+.corner-br { bottom: -8px; right: -8px; border-bottom-width: 2px; border-right-width: 2px; }
+
+.founder-content {}
+.founder-quote {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 32px;
+  font-weight: 500;
+  color: var(--text-primary);
+  line-height: 1.25;
+  margin-bottom: 28px;
+  font-style: italic;
+}
+.founder-quote em {
+  color: var(--orange);
+  font-style: normal;
+}
+.founder-bio { font-size: 15px; color: var(--text-secondary); font-weight: 300; line-height: 1.7; margin-bottom: 32px; }
+.founder-credentials { display: flex; flex-wrap: wrap; gap: 8px; }
+.cred-pill {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border: 1px solid var(--steel-light);
+  padding: 5px 12px;
+}
+.cred-pill.highlight { border-color: var(--orange); color: var(--orange); }
+
+/* ─── TICKER ─── */
+.ticker-wrap {
+  background: var(--orange);
+  overflow: hidden;
+  padding: 12px 0;
+  position: relative;
+  z-index: 2;
+}
+.ticker-track {
+  display: flex;
+  animation: ticker 30s linear infinite;
+  white-space: nowrap;
+}
+.ticker-item {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #0D0E0F;
+  padding: 0 40px;
+  display: flex; align-items: center; gap: 16px;
+}
+.ticker-item::after { content: '◆'; font-size: 8px; }
+@keyframes ticker {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+/* ─── FOOTER ─── */
+footer {
+  background: var(--concrete-mid);
+  padding: 60px 48px 32px;
+  border-top: 1px solid var(--steel);
+  position: relative; z-index: 1;
+}
+.footer-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 48px;
+  max-width: 1200px;
+  margin: 0 auto 48px;
+}
+.footer-brand {}
+.footer-logo {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: var(--orange);
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+.footer-desc { font-size: 13px; color: var(--text-muted); font-weight: 300; line-height: 1.6; max-width: 260px; }
+.footer-col-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-primary);
+  margin-bottom: 16px;
+}
+.footer-links { list-style: none; }
+.footer-links li { margin-bottom: 8px; }
+.footer-links a { font-size: 13px; color: var(--text-muted); text-decoration: none; transition: color 0.2s; }
+.footer-links a:hover { color: var(--orange); }
+.footer-bottom {
+  max-width: 1200px; margin: 0 auto;
+  display: flex; justify-content: space-between; align-items: center;
+  padding-top: 24px;
+  border-top: 1px solid var(--steel);
+  font-size: 12px; color: var(--text-muted);
+}
+.footer-legal { font-family: 'Share Tech Mono', monospace; font-size: 10px; letter-spacing: 0.06em; }
+
+/* ─── ANIMATIONS ─── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.reveal {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.6s, transform 0.6s;
+}
+.reveal.visible { opacity: 1; transform: translateY(0); }
+
+/* ─── LIVE COUNTER ─── */
+.live-indicator {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  color: var(--success);
+  letter-spacing: 0.1em;
+}
+.live-dot {
+  width: 6px; height: 6px;
+  background: var(--success);
+  border-radius: 50%;
+  animation: pulse-green 2s infinite;
+}
+@keyframes pulse-green {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.7); }
+}
+
+/* ─── MARQUEE MODULE NAMES ─── */
+.marquee-bg {
+  overflow: hidden;
+  padding: 18px 0;
+  background: rgba(245,166,35,0.04);
+  border-top: 1px solid rgba(245,166,35,0.1);
+  border-bottom: 1px solid rgba(245,166,35,0.1);
+  margin-bottom: 60px;
+}
+.marquee-track {
+  display: flex;
+  animation: ticker 20s linear infinite;
+  white-space: nowrap;
+}
+.marquee-item {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--orange);
+  padding: 0 32px;
+  opacity: 0.5;
+}
+.marquee-item.active { opacity: 1; }
+
+/* scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: #0D0E0F; }
+::-webkit-scrollbar-thumb { background: var(--orange-dim); }
+</style>
+</head>
+<body>
+
+<div id="cursor"></div>
+<div id="cursor-ring"></div>
+
+<!-- ── NAV ── -->
+<nav>
+  <div class="nav-logo">ACIAX</div>
+  <ul class="nav-links">
+    <li><a href="#problem">Problem</a></li>
+    <li><a href="#modules">Platform</a></li>
+    <li><a href="#roi">ROI</a></li>
+    <li><a href="#pricing">Pricing</a></li>
+    <li><a href="#founder">Founder</a></li>
+  </ul>
+  <button class="nav-cta">Get Early Access</button>
+</nav>
+
+<!-- ── HERO ── -->
+<section id="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-grid"></div>
+  <div class="hero-content">
+    <div class="hero-eyebrow">
+      <span class="eyebrow-badge">AI-Native · B2B SaaS</span>
+      For Mid-Size General Contractors
+      <span class="live-indicator"><span class="live-dot"></span> LIVE</span>
+    </div>
+    <h1 class="hero-headline display">
+      <span class="headline-line1">Stop losing</span>
+      <span class="headline-line2">margin on</span>
+      <span class="headline-line3">every job.</span>
+    </h1>
+    <p class="hero-sub">ACIAX is the AI command layer for mid-size general contractors — unifying change order management, RFI resolution, bid estimation, permit compliance, and safety docs in one intelligent platform.</p>
+    <div class="hero-actions">
+      <button class="btn-primary">Request Demo</button>
+      <button class="btn-ghost">See How It Works</button>
+    </div>
+  </div>
+  <div class="hero-stats">
+    <div class="hero-stat">
+      <div class="stat-n">$10T</div>
+      <div class="stat-l">Global construction output</div>
+    </div>
+    <div class="hero-stat">
+      <div class="stat-n">98%</div>
+      <div class="stat-l">Projects exceed budget</div>
+    </div>
+    <div class="hero-stat">
+      <div class="stat-n">$1,080</div>
+      <div class="stat-l">Avg cost per RFI</div>
+    </div>
+    <div class="hero-stat">
+      <div class="stat-n">28%</div>
+      <div class="stat-l">PM labor wasted on docs</div>
+    </div>
+    <div class="hero-stat">
+      <div class="stat-n">20hrs</div>
+      <div class="stat-l">Manual takeoff per bid</div>
+    </div>
+  </div>
+</section>
+
+<!-- ── TICKER ── -->
+<div class="ticker-wrap">
+  <div class="ticker-track" id="ticker">
+    <span class="ticker-item">Change Order Intelligence</span>
+    <span class="ticker-item">RFI Resolution Engine</span>
+    <span class="ticker-item">AI Bid Estimation</span>
+    <span class="ticker-item">Permit Compliance Checking</span>
+    <span class="ticker-item">Safety Documentation</span>
+    <span class="ticker-item">Drawing-Native AI</span>
+    <span class="ticker-item">Mid-Size GC Platform</span>
+    <span class="ticker-item">Budget Protection</span>
+    <span class="ticker-item">Change Order Intelligence</span>
+    <span class="ticker-item">RFI Resolution Engine</span>
+    <span class="ticker-item">AI Bid Estimation</span>
+    <span class="ticker-item">Permit Compliance Checking</span>
+    <span class="ticker-item">Safety Documentation</span>
+    <span class="ticker-item">Drawing-Native AI</span>
+    <span class="ticker-item">Mid-Size GC Platform</span>
+    <span class="ticker-item">Budget Protection</span>
+  </div>
+</div>
+
+<!-- ── PROBLEM ── -->
+<section id="problem">
+  <div class="section-inner">
+    <div class="section-tag">The Problem</div>
+    <h2 class="section-title reveal">Where your <span>margin</span><br>goes to die</h2>
+    <p class="section-desc reveal">Mid-size GCs run on email, Excel, and phone calls. The $10T construction industry still has almost zero software intelligence where it matters — in the field, on the drawings, on the deadline.</p>
+    <div class="problem-grid reveal">
+      <div class="problem-card">
+        <div class="problem-num">01</div>
+        <div class="problem-title">Change Order Chaos</div>
+        <div class="problem-body">COs live in email threads. Scope creep is invisible until it's a legal dispute. No pricing intelligence, no audit trail, no accountability chain. 3–10% of every contract value bleeds out untracked.</div>
+        <div class="problem-cost">⚠ 3–10% contract value disputed per project</div>
+      </div>
+      <div class="problem-card">
+        <div class="problem-num">02</div>
+        <div class="problem-title">RFI Black Holes</div>
+        <div class="problem-body">Each RFI that triggers rework spawns 2–4 follow-up RFIs. Teams work on incorrect assumptions because nobody tracks who has the ball. Field crews build the wrong thing — twice.</div>
+        <div class="problem-cost">⚠ $1,080 processing cost per RFI</div>
+      </div>
+      <div class="problem-card">
+        <div class="problem-num">03</div>
+        <div class="problem-title">Manual Bid Estimation</div>
+        <div class="problem-body">A 20,000 sq ft TI project needs 12–20 hours of senior estimator time. At $95/hr, that's $1,900 in labor per bid — before a single sub has quoted. Miscounts compound into margin-killing losses before the first shovel hits.</div>
+        <div class="problem-cost">⚠ $90K+/yr estimating labor at 40 bids/yr</div>
+      </div>
+      <div class="problem-card">
+        <div class="problem-num">04</div>
+        <div class="problem-title">Compliance Blind Spots</div>
+        <div class="problem-body">OSHA now mandates digital injury logs on 20+ worker sites. Permit requirements vary by municipality. Safety docs live in spreadsheets, email, and filing cabinets — not auditable, not searchable, not defensible.</div>
+        <div class="problem-cost">⚠ 8–15% GL insurance premium overpayment</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── MODULES / PLATFORM ── -->
+<section id="modules">
+  <div class="section-inner">
+    <div class="modules-header">
+      <div>
+        <div class="section-tag">The Platform</div>
+        <h2 class="section-title reveal">Four modules.<br><span>One system.</span></h2>
+      </div>
+      <div class="module-tabs" id="view-tabs">
+        <button class="tab-btn active" onclick="setView('overview')">Overview</button>
+        <button class="tab-btn" onclick="setView('detail')">Detail</button>
+      </div>
+    </div>
+
+    <div class="marquee-bg">
+      <div class="marquee-track">
+        <span class="marquee-item active">ChangeIQ</span>
+        <span class="marquee-item">·</span>
+        <span class="marquee-item">RFI Resolve</span>
+        <span class="marquee-item">·</span>
+        <span class="marquee-item">BidForge</span>
+        <span class="marquee-item">·</span>
+        <span class="marquee-item">ComplianceGuard</span>
+        <span class="marquee-item">·</span>
+        <span class="marquee-item active">ChangeIQ</span>
+        <span class="marquee-item">·</span>
+        <span class="marquee-item">RFI Resolve</span>
+        <span class="marquee-item">·</span>
+        <span class="marquee-item">BidForge</span>
+        <span class="marquee-item">·</span>
+        <span class="marquee-item">ComplianceGuard</span>
+        <span class="marquee-item">·</span>
+      </div>
+    </div>
+
+    <div class="modules-layout reveal">
+      <div class="modules-nav">
+        <div class="module-nav-item active" onclick="showModule(0, this)">
+          <div class="mnav-tag">Module 01</div>
+          <div class="mnav-name">ChangeIQ</div>
+        </div>
+        <div class="module-nav-item" onclick="showModule(1, this)">
+          <div class="mnav-tag">Module 02</div>
+          <div class="mnav-name">RFI Resolve</div>
+        </div>
+        <div class="module-nav-item" onclick="showModule(2, this)">
+          <div class="mnav-tag">Module 03</div>
+          <div class="mnav-name">BidForge</div>
+        </div>
+        <div class="module-nav-item" onclick="showModule(3, this)">
+          <div class="mnav-tag">Module 04</div>
+          <div class="mnav-name">ComplianceGuard</div>
+        </div>
+      </div>
+
+      <!-- ChangeIQ -->
+      <div class="module-content active" id="mod-0">
+        <div class="mc-eyebrow">MODULE 01 · CHANGE ORDER MANAGEMENT</div>
+        <div class="mc-title">ChangeIQ</div>
+        <div class="mc-desc">AI reads drawing revisions and auto-generates change order scope language. Prices COs from your own historical cost database. Every CO tracked with ball-in-court accountability — from sub to GC to owner.</div>
+        <ul class="mc-features">
+          <li>AI reads drawing revisions, auto-drafts CO scope</li>
+          <li>Historical unit cost pricing in minutes, not days</li>
+          <li>Ball-in-court tracking across the full approval chain</li>
+          <li>Real-time budget impact dashboard per project</li>
+          <li>Full audit trail — defensible in any dispute</li>
+          <li>Auto-flag scope creep before owner sign-off</li>
+        </ul>
+        <div class="mc-metric">
+          <div><div class="mm-val">3–10%</div><div class="mm-lab">Contract value protected</div></div>
+          <div style="width:1px; background:var(--steel);"></div>
+          <div><div class="mm-val">&lt;10min</div><div class="mm-lab">CO generation time</div></div>
+        </div>
+      </div>
+
+      <!-- RFI Resolve -->
+      <div class="module-content" id="mod-1">
+        <div class="mc-eyebrow">MODULE 02 · RFI MANAGEMENT</div>
+        <div class="mc-title">RFI Resolve</div>
+        <div class="mc-desc">Pin RFIs to exact coordinates on your plan set. AI Answer Engine searches specs, submittals, and prior RFIs to draft responses. Automated escalation when deadlines breach. Field-to-office on one thread.</div>
+        <ul class="mc-features">
+          <li>Pin RFIs to exact drawing locations on mobile</li>
+          <li>AI drafts responses from project document corpus</li>
+          <li>Auto-escalation when response deadlines breach</li>
+          <li>Links RFIs to COs when scope impact is detected</li>
+          <li>Unlimited users — subs, GC, owners, architects</li>
+          <li>Full thread history attached to drawing revision</li>
+        </ul>
+        <div class="mc-metric">
+          <div><div class="mm-val">$1,080</div><div class="mm-lab">Saved per RFI closed fast</div></div>
+          <div style="width:1px; background:var(--steel);"></div>
+          <div><div class="mm-val">~80%</div><div class="mm-lab">Faster RFI resolution</div></div>
+        </div>
+      </div>
+
+      <!-- BidForge -->
+      <div class="module-content" id="mod-2">
+        <div class="mc-eyebrow">MODULE 03 · AI BID ESTIMATION</div>
+        <div class="mc-title">BidForge</div>
+        <div class="mc-desc">Upload your plan set. AI reads geometry, counts symbols, traces wall runs, measures areas. Structured quantity takeoff in under 20 minutes. Populate your estimate with your own historical unit costs. Bid 3–5x more projects.</div>
+        <ul class="mc-features">
+          <li>Computer vision reads PDF/DWG plans natively</li>
+          <li>Counts fixtures, doors, outlets, sprinkler heads</li>
+          <li>Traces walls, measures floor areas, calculates volumes</li>
+          <li>85–98% accuracy on commercial plan sets</li>
+          <li>Human review layer — estimator approves, AI learns</li>
+          <li>Auto-generates sub-scope bid packages</li>
+        </ul>
+        <div class="mc-metric">
+          <div><div class="mm-val">20min</div><div class="mm-lab">vs. 12–20hr manual takeoff</div></div>
+          <div style="width:1px; background:var(--steel);"></div>
+          <div><div class="mm-val">$90K</div><div class="mm-lab">Estimating labor saved/yr</div></div>
+        </div>
+      </div>
+
+      <!-- ComplianceGuard -->
+      <div class="module-content" id="mod-3">
+        <div class="mc-eyebrow">MODULE 04 · PERMIT & SAFETY COMPLIANCE</div>
+        <div class="mc-title">ComplianceGuard</div>
+        <div class="mc-desc">Auto-checks drawings against local permit requirements before submission. OSHA digital injury log built in. Safety documentation indexed and searchable for audits, insurance, and legal. Proactive, not reactive.</div>
+        <ul class="mc-features">
+          <li>Permit requirement checks by jurisdiction before submission</li>
+          <li>OSHA digital injury log (mandatory 20+ worker sites)</li>
+          <li>Safety docs searchable, indexed, audit-ready</li>
+          <li>Toolbox talks, JHA forms, incident reports auto-generated</li>
+          <li>Insurance premium optimization report included</li>
+          <li>Zero manual entry — pulls from daily logs and photos</li>
+        </ul>
+        <div class="mc-metric">
+          <div><div class="mm-val">15%</div><div class="mm-lab">GL premium reduction</div></div>
+          <div style="width:1px; background:var(--steel);"></div>
+          <div><div class="mm-val">$38K</div><div class="mm-lab">Avg annual insurance savings</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── HOW IT WORKS ── -->
+<section id="how">
+  <div class="section-inner">
+    <div class="section-tag">How It Works</div>
+    <h2 class="section-title reveal">From drawings <span>to decisions</span><br>— automatically</h2>
+    <div class="process-strip reveal">
+      <div class="process-step">
+        <div class="ps-num">01</div>
+        <div class="ps-title">Upload drawings & specs</div>
+        <div class="ps-body">Drop PDF or DWG plan sets. ACIAX indexes everything.</div>
+      </div>
+      <div class="process-step">
+        <div class="ps-num">02</div>
+        <div class="ps-title">AI generates takeoff</div>
+        <div class="ps-body">Quantities extracted in under 20 minutes. Estimator reviews.</div>
+      </div>
+      <div class="process-step">
+        <div class="ps-num">03</div>
+        <div class="ps-title">Win the bid</div>
+        <div class="ps-body">Structured estimate. Sub-scope packages auto-distributed.</div>
+      </div>
+      <div class="process-step">
+        <div class="ps-num">04</div>
+        <div class="ps-title">RFIs pinned live</div>
+        <div class="ps-body">Field pins questions to drawings. AI drafts answers.</div>
+      </div>
+      <div class="process-step">
+        <div class="ps-num">05</div>
+        <div class="ps-title">Drawing rev → CO</div>
+        <div class="ps-body">Revision detected. CO scope drafted. Pricing generated.</div>
+      </div>
+      <div class="process-step">
+        <div class="ps-num">06</div>
+        <div class="ps-title">Compliance runs live</div>
+        <div class="ps-body">Safety docs, OSHA logs, permit checks — continuous.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── ROI ── -->
+<section id="roi">
+  <div class="section-inner">
+    <div class="section-tag">Return on Investment</div>
+    <h2 class="section-title reveal">The numbers a <span>GC owner</span><br>actually cares about</h2>
+    <p class="section-desc reveal">ACIAX doesn't sell software. It sells recovered margin. Here's what a typical mid-size GC on the Professional plan recovers in Year 1.</p>
+    <div class="roi-grid reveal">
+      <div class="roi-card">
+        <div class="roi-icon">📐</div>
+        <div class="roi-label">Estimating labor recovered</div>
+        <div class="roi-value">$45K–$90K</div>
+        <div class="roi-sub">At 40 bids/year with AI takeoff replacing 12–20hr manual count per bid. Senior estimator shifts from counting to closing.</div>
+      </div>
+      <div class="roi-card">
+        <div class="roi-icon">📋</div>
+        <div class="roi-label">PM time freed from admin</div>
+        <div class="roi-value">$180K–$450K</div>
+        <div class="roi-sub">22–28% of project coordination labor wasted on document admin. ACIAX redirects that to actual construction management.</div>
+      </div>
+      <div class="roi-card">
+        <div class="roi-icon">🛡️</div>
+        <div class="roi-label">Insurance premium savings</div>
+        <div class="roi-value">$10K–$38K</div>
+        <div class="roi-sub">8–15% reduction in GL premiums for contractors with comprehensive digital documentation. Documented, reportable, insurer-ready.</div>
+      </div>
+    </div>
+    <div class="reveal" style="margin-top: 20px; padding: 24px 32px; background: rgba(245,166,35,0.05); border: 1px solid rgba(245,166,35,0.2); display:flex; align-items:center; justify-content:space-between;">
+      <div>
+        <div style="font-family:'Share Tech Mono',monospace; font-size:10px; color:var(--text-muted); letter-spacing:0.12em; margin-bottom:6px;">TOTAL YEAR 1 RETURN · PROFESSIONAL TIER</div>
+        <div style="font-family:'Barlow Condensed',sans-serif; font-size:40px; font-weight:800; color:var(--orange);">$235K – $578K</div>
+        <div style="font-size:13px; color:var(--text-muted);">On a $29,988/yr platform investment</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-family:'Barlow Condensed',sans-serif; font-size:64px; font-weight:800; color:var(--orange);">8–19x</div>
+        <div style="font-family:'Share Tech Mono',monospace; font-size:11px; color:var(--text-muted); letter-spacing:0.1em;">ROI</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── PRICING ── -->
+<section id="pricing">
+  <div class="section-inner">
+    <div class="section-tag">Pricing</div>
+    <h2 class="section-title reveal">Priced for the <span>mid-market.</span><br>Not for enterprise.</h2>
+    <p class="section-desc reveal">No per-seat traps. No enterprise lock-in. Monthly or annual. Cancel anytime.</p>
+    <div class="pricing-grid reveal">
+      <div class="price-card">
+        <div class="price-tier">Starter</div>
+        <div class="price-amount">$799</div>
+        <div class="price-period">/month</div>
+        <div class="price-target">Up to 3 active projects · 5 users</div>
+        <ul class="price-features">
+          <li><span class="check">✓</span> RFI Resolve (unlimited RFIs)</li>
+          <li><span class="check">✓</span> ChangeIQ — basic CO tracking</li>
+          <li><span class="check">✓</span> ComplianceGuard — OSHA logs</li>
+          <li><span class="check">✓</span> BidForge — 5 takeoffs/month</li>
+          <li><span class="check">✓</span> Email + chat support</li>
+        </ul>
+        <button class="price-cta">Get Started</button>
+      </div>
+      <div class="price-card featured">
+        <div class="price-badge">Most Popular</div>
+        <div class="price-tier">Professional</div>
+        <div class="price-amount">$2,499</div>
+        <div class="price-period">/month</div>
+        <div class="price-target">Up to 15 active projects · Unlimited users</div>
+        <ul class="price-features">
+          <li><span class="check">✓</span> Everything in Starter</li>
+          <li><span class="check">✓</span> AI CO auto-pricing from your history</li>
+          <li><span class="check">✓</span> Unlimited BidForge takeoffs</li>
+          <li><span class="check">✓</span> Permit compliance checking</li>
+          <li><span class="check">✓</span> Sub-scope bid solicitation</li>
+          <li><span class="check">✓</span> Dedicated onboarding CSM</li>
+        </ul>
+        <button class="price-cta">Start Free Trial</button>
+      </div>
+      <div class="price-card">
+        <div class="price-tier">Enterprise</div>
+        <div class="price-amount">Custom</div>
+        <div class="price-period">&nbsp;</div>
+        <div class="price-target">Unlimited projects · Multi-office</div>
+        <ul class="price-features">
+          <li><span class="check">✓</span> Everything in Professional</li>
+          <li><span class="check">✓</span> ERP / accounting integrations</li>
+          <li><span class="check">✓</span> Custom AI model on your data</li>
+          <li><span class="check">✓</span> BIM / IFC file linking</li>
+          <li><span class="check">✓</span> SLA + dedicated support</li>
+          <li><span class="check">✓</span> Insurance optimization report</li>
+        </ul>
+        <button class="price-cta">Contact Sales</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── FOUNDER ── -->
+<section id="founder">
+  <div class="section-inner">
+    <div class="section-tag">The Founder</div>
+    <h2 class="section-title reveal">Built by someone who <span>knows</span><br>the problem firsthand</h2>
+    <div class="founder-layout reveal">
+      <div class="founder-visual">
+        <div class="founder-frame">
+          <div class="founder-initials">
+            <div class="fi-letters">SB</div>
+          </div>
+          <div class="fi-name">
+            <div class="fi-fullname">Shiv Bhushan</div>
+            <div class="fi-role">// Founder & CEO · ACIAX</div>
+          </div>
+        </div>
+        <div class="founder-corner corner-tl"></div>
+        <div class="founder-corner corner-br"></div>
+      </div>
+      <div class="founder-content">
+        <div class="founder-quote">
+          "98% of projects run over budget not because GCs are bad — but because <em>no software</em> has ever been built specifically to protect their margin."
+        </div>
+        <div class="founder-bio">
+          Shiv Bhushan is the founder and CEO of ACIAX. He comes from a deep background in construction operations and AI systems, having watched mid-size general contractors bleed margin project after project — not from bad work, but from broken information flow.
+          <br><br>
+          The insight was simple and devastating: the $10T construction industry still runs on email threads, Excel spreadsheets, and phone calls for its most critical financial decisions. Change orders. RFIs. Bids. Compliance. None of it is intelligent. ACIAX exists to fix that — built ground-up for the GC who runs 5–40 projects at once and doesn't have time for enterprise software designed for 1000-person firms.
+        </div>
+        <div class="founder-credentials">
+          <span class="cred-pill highlight">ACIAX · Founder & CEO</span>
+          <span class="cred-pill">Construction Operations</span>
+          <span class="cred-pill">AI / ML Systems</span>
+          <span class="cred-pill">B2B SaaS</span>
+          <span class="cred-pill">Mid-Market GC Focus</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── FOOTER ── -->
+<footer>
+  <div class="footer-grid">
+    <div class="footer-brand">
+      <div class="footer-logo">ACIAX</div>
+      <div class="footer-desc">The AI command layer for mid-size general contractors. Drawing-native intelligence that protects your margin from bid to closeout.</div>
+    </div>
+    <div>
+      <div class="footer-col-title">Platform</div>
+      <ul class="footer-links">
+        <li><a href="#modules">ChangeIQ</a></li>
+        <li><a href="#modules">RFI Resolve</a></li>
+        <li><a href="#modules">BidForge</a></li>
+        <li><a href="#modules">ComplianceGuard</a></li>
+      </ul>
+    </div>
+    <div>
+      <div class="footer-col-title">Company</div>
+      <ul class="footer-links">
+        <li><a href="#founder">About</a></li>
+        <li><a href="#founder">Founder</a></li>
+        <li><a href="#pricing">Pricing</a></li>
+        <li><a href="#">Careers</a></li>
+      </ul>
+    </div>
+    <div>
+      <div class="footer-col-title">Resources</div>
+      <ul class="footer-links">
+        <li><a href="#">ROI Calculator</a></li>
+        <li><a href="#">RFI Cost Report</a></li>
+        <li><a href="#">CO Templates</a></li>
+        <li><a href="#">Documentation</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <div class="footer-legal">© 2025 ACIAX · All rights reserved · Built for GCs who refuse to bleed margin</div>
+    <div style="display:flex; gap:20px;">
+      <a href="#" style="font-size:12px; color:var(--text-muted); text-decoration:none;">Privacy</a>
+      <a href="#" style="font-size:12px; color:var(--text-muted); text-decoration:none;">Terms</a>
+      <a href="#" style="font-size:12px; color:var(--text-muted); text-decoration:none;">Contact</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+// Custom cursor
+const cursor = document.getElementById('cursor');
+const ring = document.getElementById('cursor-ring');
+let mx = 0, my = 0, rx = 0, ry = 0;
+document.addEventListener('mousemove', e => {
+  mx = e.clientX; my = e.clientY;
+  cursor.style.left = mx + 'px';
+  cursor.style.top = my + 'px';
+});
+function animateRing() {
+  rx += (mx - rx) * 0.12;
+  ry += (my - ry) * 0.12;
+  ring.style.left = rx + 'px';
+  ring.style.top = ry + 'px';
+  requestAnimationFrame(animateRing);
+}
+animateRing();
+document.querySelectorAll('button, a, .module-nav-item, .problem-card').forEach(el => {
+  el.addEventListener('mouseenter', () => {
+    cursor.style.width = '20px';
+    cursor.style.height = '20px';
+  });
+  el.addEventListener('mouseleave', () => {
+    cursor.style.width = '10px';
+    cursor.style.height = '10px';
+  });
+});
+
+// Scroll reveal
+const reveals = document.querySelectorAll('.reveal');
+const io = new IntersectionObserver((entries) => {
+  entries.forEach((e, i) => {
+    if (e.isIntersecting) {
+      e.target.style.transitionDelay = (i % 3) * 0.12 + 's';
+      e.target.classList.add('visible');
+    }
+  });
+}, { threshold: 0.1 });
+reveals.forEach(r => io.observe(r));
+
+// Module switcher
+function showModule(idx, el) {
+  document.querySelectorAll('.module-nav-item').forEach(i => i.classList.remove('active'));
+  document.querySelectorAll('.module-content').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('mod-' + idx).classList.add('active');
+}
+
+// View tabs (decorative toggle for now)
+function setView(v) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+}
+
+// Animated counters
+function animateCounter(el, target, prefix, suffix, decimals) {
+  let start = 0;
+  const step = target / 60;
+  const timer = setInterval(() => {
+    start += step;
+    if (start >= target) { start = target; clearInterval(timer); }
+    el.textContent = prefix + (decimals ? start.toFixed(decimals) : Math.floor(start)) + suffix;
+  }, 16);
+}
+const counterIO = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting && !e.target.dataset.counted) {
+      e.target.dataset.counted = 1;
+      const raw = e.target.dataset.count;
+      const prefix = e.target.dataset.prefix || '';
+      const suffix = e.target.dataset.suffix || '';
+      animateCounter(e.target, parseFloat(raw), prefix, suffix, e.target.dataset.dec || 0);
+    }
+  });
+}, { threshold: 0.5 });
+document.querySelectorAll('[data-count]').forEach(el => counterIO.observe(el));
+</script>
+</body>
+</html>
